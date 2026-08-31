@@ -67,6 +67,59 @@ streamlit run app.py
 
 The app opens at `http://localhost:8501`.
 
+## Deploying to Render (Docker)
+
+This repo includes a `Dockerfile` and `.dockerignore` for container
+deployment. `.env` is excluded from the image on purpose — Render
+injects your keys as environment variables at runtime instead, the
+same way Streamlit Cloud uses Secrets. `llm_client.py`'s `_get_setting()`
+already falls back to `os.getenv(...)`, so this works with zero code changes.
+
+1. Push this folder (including `Dockerfile` and `.dockerignore`) to a GitHub repo
+2. On https://dashboard.render.com, **New → Web Service**, connect the repo
+3. Render should auto-detect the `Dockerfile`; if asked, set:
+   - **Environment**: Docker
+   - **Region/Instance**: your choice (free tier works fine for testing)
+4. Under **Environment → Environment Variables**, add the same keys as your `.env`:
+   | Key | Value |
+   |---|---|
+   | `LLM_PROVIDER` | `groq` |
+   | `GROQ_API_KEY` | `gsk_xxxxxxxxxxxxxxxxxxxx` |
+   | `GROQ_MODEL` | `openai/gpt-oss-120b` |
+
+   Do **not** set `PORT` — Render sets it automatically and the
+   Dockerfile's `CMD` reads it.
+5. Deploy. Render builds the image from the Dockerfile and starts the container.
+
+To test the same image locally first:
+```bash
+docker build -t code-tutor-bot .
+docker run -p 8501:8501 -e GROQ_API_KEY=gsk_xxx -e LLM_PROVIDER=groq code-tutor-bot
+```
+Then open `http://localhost:8501`.
+
+## Deploying to Streamlit Community Cloud
+
+`.env` is gitignored on purpose, so it never reaches the server. Use
+Streamlit's built-in **Secrets** panel instead — `llm_client.py`
+already checks `st.secrets` first, so no code changes are needed.
+
+1. Push this folder to a GitHub repo (`.env` won't be included — that's correct)
+2. On https://share.streamlit.io, create a new app pointing at `app.py`
+3. In the app's **Settings → Secrets**, paste the same keys as your `.env`, in TOML format:
+   ```toml
+   LLM_PROVIDER = "groq"
+   GROQ_API_KEY = "gsk_xxxxxxxxxxxxxxxxxxxx"
+   GROQ_MODEL = "openai/gpt-oss-120b"
+   ```
+4. Deploy. That's it — locally it reads `.env`, on Cloud it reads Secrets, same code either way.
+
+You never need to create a `secrets.toml` file yourself — Streamlit
+Cloud generates and stores it for you from what you paste into the
+Secrets panel. (If you ever want to test cloud-style secrets locally,
+you *can* create `.streamlit/secrets.toml` with the same TOML — it's
+already in `.gitignore` too.)
+
 ## Switching to Mistral
 
 Just change two lines in `.env`:
